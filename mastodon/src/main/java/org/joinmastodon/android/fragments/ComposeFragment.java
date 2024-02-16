@@ -812,6 +812,19 @@ public class ComposeFragment extends MastodonToolbarFragment implements OnBackPr
 		if(savedInstanceState==null){
 			if(editingStatus!=null){
 				initialText=getArguments().getString("sourceText", "");
+
+				//TODO: Haven't tested this yet
+				initialText += "\n\n";
+				
+				for (Hashtag tag : editingStatus.tags) {
+					if (!initialText.contains(tag.toString())) {
+				    	initialText += tag.toString() + " ";
+					}
+				}
+				
+				initialText = initialText.trim(); // Trim the trailing space
+				//TODO: STILL NEED TO TEST
+
 				mainEditText.setText(initialText);
 				ignoreSelectionChanges=true;
 				mainEditText.setSelection(mainEditText.length());
