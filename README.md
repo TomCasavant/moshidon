@@ -1,3 +1,7 @@
+Modified Moshidon client that allows me to edit posts on my instace ([tomcasavant/mastodon](https://github.com/TomCasavant/mastodon)) - The mastodon instance removes hashtags from the bottom of the status so they need to be added back in during update process, removes '#' symbol from in-line tags 
+
+## Original README
+----
 ![MoshidonLogo](mastodon/src/main/res/mipmap-xhdpi/ic_launcher_round.png)
 
 # Moshidon, the material you mastodon client! 
