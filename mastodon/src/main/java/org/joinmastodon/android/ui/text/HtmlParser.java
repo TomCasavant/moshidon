@@ -133,6 +133,7 @@ public class HtmlParser{
 									linkType=LinkSpan.Type.HASHTAG;
 									href=text.substring(1);
 									linkObject=tagsByTag.get(text.substring(1).toLowerCase());
+                                                                        el.text(href);
 								}else{
 									linkType=LinkSpan.Type.URL;
 								}
