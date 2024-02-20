@@ -111,7 +111,7 @@
 	<string name="mo_confirm_unfollow">Confirm to unfollow %s</string>
 	<string name="mo_recent_emoji_cleared">Recent emoji cleared</string>
 	<string name="mo_show_media_preview">Show media preview in timelines</string>
-    <string name="mo_hide_tag_symbol">Hide tag symbol ('#') in posts</string>
+        <string name="mo_hide_tag_symbol">Hide tag symbol (\'#\') in posts</string>
 	<string name="mo_notification_filter_reset">Reset to default</string>
 
 	<!--	Temporary Strings. They exist in strings_sk.xml, but are not available on Megalodon's weblate-->
