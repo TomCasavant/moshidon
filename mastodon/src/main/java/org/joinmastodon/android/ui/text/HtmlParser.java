@@ -24,6 +24,7 @@ import com.twitter.twittertext.Regex;
 import org.joinmastodon.android.R;
 import org.joinmastodon.android.model.Emoji;
 import org.joinmastodon.android.model.FilterResult;
+import org.joinmastodon.android.GlobalUserPreferences;
 import org.joinmastodon.android.model.Hashtag;
 import org.joinmastodon.android.model.Mention;
 import org.joinmastodon.android.ui.utils.UiUtils;
@@ -133,7 +134,10 @@ public class HtmlParser{
 									linkType=LinkSpan.Type.HASHTAG;
 									href=text.substring(1);
 									linkObject=tagsByTag.get(text.substring(1).toLowerCase());
-                                                                        el.text(href);
+									if (GlobalUserPreferences.hideTagSymbol) {
+										el.text(href);
+									}
+                                    
 								}else{
 									linkType=LinkSpan.Type.URL;
 								}
