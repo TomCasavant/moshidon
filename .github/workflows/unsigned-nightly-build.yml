@@ -33,8 +33,11 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew assembleNightly -Pandroid.injected.signing.store.file=none -Pandroid.injected.signing.key.alias=none
 
+    - name: List APK files
+      run: ls ./mastodon/build/outputs/apk/nightly/
+      
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.2
       with:
-        name: moshidon-nightly.apk
-        path: ./mastodon/build/outputs/apk/nightly/moshidon-nightly.apk
+        name: moshidon-nightly-$(date +"%Y%m%d").apk
+        path: ./mastodon/build/outputs/apk/nightly/moshidon-nightly-$(date +"%Y%m%d").apk
