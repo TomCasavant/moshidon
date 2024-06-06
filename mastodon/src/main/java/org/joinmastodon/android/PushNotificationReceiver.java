@@ -101,7 +101,7 @@ public class PushNotificationReceiver extends BroadcastReceiver{
 						}
 						String accountID=account.getID();
 						PushNotification pn=AccountSessionManager.getInstance().getAccount(accountID).getPushSubscriptionManager().decryptNotification(k, p, s);
-						new GetNotificationByID(pn.notificationId+"")
+						new GetNotificationByID(pn.notificationId)
 								.setCallback(new Callback<>(){
 									@Override
 									public void onSuccess(org.joinmastodon.android.model.Notification result){
@@ -133,7 +133,11 @@ public class PushNotificationReceiver extends BroadcastReceiver{
 
 			if(intent.hasExtra("notification")){
 				org.joinmastodon.android.model.Notification notification=Parcels.unwrap(intent.getParcelableExtra("notification"));
-				String statusID=notification.status.id;
+
+				String statusID = null;
+				if(notification != null && notification.status != null)
+					statusID=notification.status.id;
+
 				if (statusID != null) {
 					AccountSessionManager accountSessionManager = AccountSessionManager.getInstance();
 					Preferences preferences = accountSessionManager.getAccount(accountID).preferences;
@@ -154,9 +158,9 @@ public class PushNotificationReceiver extends BroadcastReceiver{
 		}
 	}
 
-	public void notifyUnifiedPush(Context context, String accountID, org.joinmastodon.android.model.Notification notification) {
+	public void notifyUnifiedPush(Context context, AccountSession account, org.joinmastodon.android.model.Notification notification) {
 		// push notifications are only created from the official push notification, so we create a fake from by transforming the notification
-		PushNotificationReceiver.this.notify(context, PushNotification.fromNotification(context, notification), accountID, notification);
+		PushNotificationReceiver.this.notify(context, PushNotification.fromNotification(context, account, notification), account.getID(), notification);
 	}
 
 	private void notify(Context context, PushNotification pn, String accountID, org.joinmastodon.android.model.Notification notification){

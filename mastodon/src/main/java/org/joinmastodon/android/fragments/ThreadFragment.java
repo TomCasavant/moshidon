@@ -2,11 +2,19 @@ package org.joinmastodon.android.fragments;
 
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.joinmastodon.android.GlobalUserPreferences;
 import com.squareup.otto.Subscribe;
 
 import org.joinmastodon.android.E;
@@ -23,6 +31,7 @@ import org.joinmastodon.android.model.Account;
 import org.joinmastodon.android.model.FilterContext;
 import org.joinmastodon.android.model.Status;
 import org.joinmastodon.android.model.StatusContext;
+import org.joinmastodon.android.ui.OutlineProviders;
 import org.joinmastodon.android.ui.BetterItemAnimator;
 import org.joinmastodon.android.ui.displayitems.ExtendedFooterStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.FooterStatusDisplayItem;
@@ -50,7 +59,13 @@ import java.util.stream.Collectors;
 
 import me.grishka.appkit.api.Callback;
 import me.grishka.appkit.api.ErrorResponse;
+import androidx.recyclerview.widget.RecyclerView;
+import me.grishka.appkit.Nav;
 import me.grishka.appkit.api.SimpleCallback;
+import me.grishka.appkit.imageloader.ViewImageLoader;
+import me.grishka.appkit.imageloader.requests.UrlImageLoaderRequest;
+import me.grishka.appkit.utils.MergeRecyclerAdapter;
+import me.grishka.appkit.utils.SingleViewRecyclerAdapter;
 import me.grishka.appkit.utils.V;
 
 public class ThreadFragment extends StatusListFragment implements ProvidesAssistContent {
@@ -58,10 +73,16 @@ public class ThreadFragment extends StatusListFragment implements ProvidesAssist
 	private final HashMap<String, NeighborAncestryInfo> ancestryMap = new HashMap<>();
 	private StatusContext result;
 	protected boolean contextInitiallyRendered, transitionFinished, preview;
+	private FrameLayout replyContainer;
+	private LinearLayout replyButton;
+	private ImageView replyButtonAva;
+	private TextView replyButtonText;
+	private int lastBottomInset;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState){
 		super.onCreate(savedInstanceState);
+		setLayout(R.layout.fragment_thread);
 		mainStatus=Parcels.unwrap(getArguments().getParcelable("status"));
 		replyTo=Parcels.unwrap(getArguments().getParcelable("inReplyTo"));
 		Account inReplyToAccount=Parcels.unwrap(getArguments().getParcelable("inReplyToAccount"));
@@ -143,10 +164,10 @@ public class ThreadFragment extends StatusListFragment implements ProvidesAssist
 				}
 			}
 		}
-    
+
 		for (int deleteThisItem : deleteTheseItems) itemsToModify.remove(deleteThisItem);
 		if(s.id.equals(mainStatus.id)) {
-			items.add(new ExtendedFooterStatusDisplayItem(s.id, this, accountID, s.getContentStatus()));
+			itemsToModify.add(itemsToModify.size()-1, new ExtendedFooterStatusDisplayItem(s.id, this, accountID, s.getContentStatus()));
 		}
 		return items;
 	}
@@ -209,10 +230,13 @@ public class ThreadFragment extends StatusListFragment implements ProvidesAssist
 				s.filterRevealed = oldStatus.filterRevealed;
 			}
 			if (GlobalUserPreferences.autoRevealEqualSpoilers != AutoRevealMode.NEVER &&
-					s.spoilerText != null &&
-					s.spoilerText.equals(mainStatus.spoilerText)) {
-				if (GlobalUserPreferences.autoRevealEqualSpoilers == AutoRevealMode.DISCUSSIONS || Objects.equals(mainStatus.account.id, s.account.id)) {
-					s.spoilerRevealed = mainStatus.spoilerRevealed;
+					s.spoilerText != null){
+				if (s.spoilerText.equals(mainStatus.spoilerText) ||
+						(s.spoilerText.toLowerCase().startsWith("re: ") &&
+								s.spoilerText.substring(4).equals(mainStatus.spoilerText))){
+					if (GlobalUserPreferences.autoRevealEqualSpoilers == AutoRevealMode.DISCUSSIONS || Objects.equals(mainStatus.account.id, s.account.id)) {
+						s.spoilerRevealed = mainStatus.spoilerRevealed;
+					}
 				}
 			}
 		}
@@ -387,6 +411,22 @@ public class ThreadFragment extends StatusListFragment implements ProvidesAssist
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState){
 		super.onViewCreated(view, savedInstanceState);
+		replyContainer=view.findViewById(R.id.reply_button_wrapper);
+		replyButton=replyContainer.findViewById(R.id.reply_button);
+		replyButtonText=replyButton.findViewById(R.id.reply_btn_text);
+		replyButtonAva=replyButton.findViewById(R.id.avatar);
+		replyButton.setOutlineProvider(OutlineProviders.roundedRect(20));
+		replyButton.setClipToOutline(true);
+		replyButtonText.setText(HtmlParser.parseCustomEmoji(getString(R.string.reply_to_user, mainStatus.account.displayName), mainStatus.account.emojis));
+		UiUtils.loadCustomEmojiInTextView(replyButtonText);
+		replyButtonAva.setOutlineProvider(OutlineProviders.OVAL);
+		replyButtonAva.setClipToOutline(true);
+		replyButton.setOnClickListener(v->openReply(mainStatus, accountID));
+		replyButton.setOnLongClickListener(this::onReplyLongClick);
+		Account self=AccountSessionManager.get(accountID).self;
+		if(!TextUtils.isEmpty(self.avatar)){
+			ViewImageLoader.loadWithoutAnimation(replyButtonAva, getResources().getDrawable(R.drawable.image_placeholder), new UrlImageLoaderRequest(self.avatar, V.dp(24), V.dp(24)));
+		}
 		UiUtils.loadCustomEmojiInTextView(toolbarTitleView);
 		showContent();
 		if(!loaded)
@@ -525,5 +565,37 @@ public class ThreadFragment extends StatusListFragment implements ProvidesAssist
 			return;
 		}
 		super.onErrorRetryClick();
+	}
+
+	@Override
+	public void onApplyWindowInsets(WindowInsets insets){
+		lastBottomInset=insets.getSystemWindowInsetBottom();
+		super.onApplyWindowInsets(UiUtils.applyBottomInsetToFixedView(replyContainer, insets));
+	}
+
+	private void openReply(Status status, String accountID){
+		maybeShowPreReplySheet(status, ()->{
+			Bundle args=new Bundle();
+			args.putString("account", accountID);
+			args.putParcelable("replyTo", Parcels.wrap(status));
+			args.putBoolean("fromThreadFragment", true);
+			Nav.go(getActivity(), ComposeFragment.class, args);
+		});
+	}
+	private boolean onReplyLongClick(View v) {
+		if(mainStatus.preview) return false;
+		if (AccountSessionManager.getInstance().getLoggedInAccounts().size() < 2) return false;
+		UiUtils.pickAccount(v.getContext(), accountID, R.string.sk_reply_as, R.drawable.ic_fluent_arrow_reply_28_regular, session -> {
+			String pickedAccountID = session.getID();
+				UiUtils.lookupStatus(v.getContext(), mainStatus, pickedAccountID, accountID, status -> {
+				if (status == null) return;
+				openReply(status, pickedAccountID);
+			});
+		}, null);
+		return true;
+	}
+
+	public int getSnackbarOffset(){
+		return replyContainer.getHeight()-lastBottomInset;
 	}
 }

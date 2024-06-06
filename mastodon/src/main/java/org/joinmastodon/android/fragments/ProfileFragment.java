@@ -8,6 +8,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.assist.AssistContent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
@@ -21,12 +23,9 @@ import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.Editable;
 import android.text.InputType;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
-import android.text.style.ImageSpan;
-import android.text.TextWatcher;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.TransitionManager;
@@ -43,8 +42,6 @@ import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
-import android.view.animation.TranslateAnimation;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -72,11 +69,9 @@ import org.joinmastodon.android.api.requests.accounts.UpdateAccountCredentials;
 import org.joinmastodon.android.api.requests.instance.GetInstance;
 import org.joinmastodon.android.api.session.AccountSessionManager;
 import org.joinmastodon.android.fragments.account_list.BlockedAccountsListFragment;
-import org.joinmastodon.android.fragments.account_list.BlocksListFragment;
 import org.joinmastodon.android.fragments.account_list.FollowerListFragment;
 import org.joinmastodon.android.fragments.account_list.FollowingListFragment;
 import org.joinmastodon.android.fragments.account_list.MutedAccountsListFragment;
-import org.joinmastodon.android.fragments.account_list.MutesListFragment;
 import org.joinmastodon.android.fragments.report.ReportReasonChoiceFragment;
 import org.joinmastodon.android.fragments.settings.SettingsServerFragment;
 import org.joinmastodon.android.model.Account;
@@ -90,6 +85,7 @@ import org.joinmastodon.android.ui.OutlineProviders;
 import org.joinmastodon.android.ui.SimpleViewHolder;
 import org.joinmastodon.android.ui.SingleImagePhotoViewerListener;
 import org.joinmastodon.android.ui.photoviewer.PhotoViewer;
+import org.joinmastodon.android.ui.sheets.DecentralizationExplainerSheet;
 import org.joinmastodon.android.ui.tabs.TabLayout;
 import org.joinmastodon.android.ui.tabs.TabLayoutMediator;
 import org.joinmastodon.android.ui.text.CustomEmojiSpan;
@@ -143,7 +139,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 	private ImageView avatar;
 	private CoverImageView cover;
 	private View avatarBorder;
-	private TextView name, username, bio, followersCount, followersLabel, followingCount, followingLabel;
+	private TextView name, username, usernameDomain, bio, followersCount, followersLabel, followingCount, followingLabel;
 	private ImageView lockIcon, botIcon;
 	private ProgressBarButton actionButton, notifyButton;
 	private ViewPager2 pager;
@@ -249,6 +245,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 		name=content.findViewById(R.id.name);
 		usernameWrap=content.findViewById(R.id.username_wrap);
 		username=content.findViewById(R.id.username);
+		usernameDomain=content.findViewById(R.id.username_domain);
 		lockIcon=content.findViewById(R.id.lock_icon);
 		botIcon=content.findViewById(R.id.bot_icon);
 		bio=content.findViewById(R.id.bio);
@@ -401,28 +398,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 		followingBtn.setOnClickListener(this::onFollowersOrFollowingClick);
 
 		content.findViewById(R.id.username_wrap).setOnClickListener(v->{
-			try {
-				new GetInstance()
-						.setCallback(new Callback<>(){
-							@Override
-							public void onSuccess(Instance result){
-								Bundle args = new Bundle();
-								args.putParcelable("instance", Parcels.wrap(result));
-								args.putString("account", accountID);
-								Nav.go(getActivity(), SettingsServerFragment.class, args);
-							}
-
-							@Override
-							public void onError(ErrorResponse error){
-								error.showToast(getContext());
-							}
-						})
-						.wrapProgress((Activity) getContext(), R.string.loading, true)
-						.execRemote(Uri.parse(account.url).getHost());
-			} catch (NullPointerException ignored) {
-				// maybe the url was malformed?
-				Toast.makeText(getContext(), R.string.error, Toast.LENGTH_SHORT).show();
-			}
+			new DecentralizationExplainerSheet(getActivity(), accountID, account).show();
 		});
 
 		content.findViewById(R.id.username_wrap).setOnLongClickListener(v->{
@@ -430,7 +406,8 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 			if(!usernameString.contains("@")){
 				usernameString+="@"+domain;
 			}
-			UiUtils.copyText(username, '@'+usernameString);
+			getActivity().getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText(null, "@"+usernameString));
+			UiUtils.maybeShowTextCopiedToast(getActivity());
 			return true;
 		});
 
@@ -457,6 +434,16 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 
 		nameEdit.addTextChangedListener(new SimpleTextWatcher(e->editDirty=true));
 		bioEdit.addTextChangedListener(new SimpleTextWatcher(e->editDirty=true));
+
+
+//		qrCodeButton.setOnClickListener(v->{
+//			Bundle args=new Bundle();
+//			args.putString("account", accountID);
+//			args.putParcelable("targetAccount", Parcels.wrap(account));
+//			ProfileQrCodeFragment qf=new ProfileQrCodeFragment();
+//			qf.setArguments(args);
+//			qf.show(getChildFragmentManager(), "qrDialog");
+//		});
 
 		return sizeWrapper;
 	}
@@ -718,13 +705,18 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 			}
 		}
 
-		boolean isSelf=AccountSessionManager.getInstance().isSelf(accountID, account);
+//		boolean isSelf=AccountSessionManager.getInstance().isSelf(accountID, account);
 
-		String acct = ((isSelf || account.isRemote)
-					? account.getFullyQualifiedName()
-					: account.acct);
+//		String acct = ((isSelf || account.isRemote)
+//					? account.getFullyQualifiedName()
+//					: account.acct);
 
-		username.setText('@'+acct);
+		username.setText("@"+account.username);
+
+		String domain=account.getDomain();
+		if(TextUtils.isEmpty(domain))
+			domain=AccountSessionManager.get(accountID).domain;
+		usernameDomain.setText(domain);
 
 		lockIcon.setVisibility(account.locked ? View.VISIBLE : View.GONE);
 		lockIcon.setImageTintList(ColorStateList.valueOf(username.getCurrentTextColor()));
@@ -743,7 +735,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 		followingCount.setText(UiUtils.abbreviateNumber(account.followingCount));
 		followersLabel.setText(getResources().getQuantityString(R.plurals.followers, (int)Math.min(999, account.followersCount)));
 		followingLabel.setText(getResources().getQuantityString(R.plurals.following, (int)Math.min(999, account.followingCount)));
-		
+
 		if (account.followersCount < 0) followersBtn.setVisibility(View.GONE);
 		if (account.followingCount < 0) followingBtn.setVisibility(View.GONE);
 		if (account.followersCount < 0 || account.followingCount < 0)
@@ -775,7 +767,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 		}
 
 		for(AccountField field:account.fields){
-			field.parsedValue=ssb=HtmlParser.parse(field.value, account.emojis, Collections.emptyList(), Collections.emptyList(), accountID);
+			field.parsedValue=ssb=HtmlParser.parse(field.value, account.emojis, Collections.emptyList(), Collections.emptyList(), accountID, account);
 			field.valueEmojis=ssb.getSpans(0, ssb.length(), CustomEmojiSpan.class);
 			ssb=new SpannableStringBuilder(field.name);
 			HtmlParser.parseCustomEmoji(ssb, account.emojis);
@@ -873,10 +865,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 	public boolean onOptionsItemSelected(MenuItem item){
 		int id=item.getItemId();
 		if(id==R.id.share){
-			Intent intent=new Intent(Intent.ACTION_SEND);
-			intent.setType("text/plain");
-			intent.putExtra(Intent.EXTRA_TEXT, account.url);
-			startActivity(Intent.createChooser(intent, item.getTitle()));
+			UiUtils.openSystemShareSheet(getActivity(), account);
 		}else if(id==R.id.mute){
 			UiUtils.confirmToggleMuteUser(getActivity(), accountID, account, relationship.muting, this::updateRelationship);
 		}else if(id==R.id.block){
@@ -973,6 +962,11 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 						.show();
 			}
 			invalidateOptionsMenu();
+		}else if(id==R.id.manage_user_lists){
+			Bundle args=new Bundle();
+			args.putString("account", accountID);
+			args.putParcelable("targetAccount", Parcels.wrap(account));
+			Nav.go(getActivity(), AddAccountToListsFragment.class, args);
 		}
 		return true;
 	}
@@ -1364,7 +1358,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 				return;
 			int radius=V.dp(25);
 			currentPhotoViewer=new PhotoViewer(getActivity(), createFakeAttachments(TextUtils.isEmpty(account.avatar) ? getSession().getDefaultAvatarUrl() : account.avatar, ava), 0,
-					new SingleImagePhotoViewerListener(avatar, avatarBorder, new int[]{radius, radius, radius, radius}, this, ()->currentPhotoViewer=null, ()->ava, null, null));
+					null, accountID, new SingleImagePhotoViewerListener(avatar, avatarBorder, new int[]{radius, radius, radius, radius}, this, ()->currentPhotoViewer=null, ()->ava, null, null));
 		}
 	}
 
@@ -1376,7 +1370,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 			if(drawable==null || drawable instanceof ColorDrawable)
 				return;
 			currentPhotoViewer=new PhotoViewer(getActivity(), createFakeAttachments(account.header, drawable), 0,
-					new SingleImagePhotoViewerListener(cover, cover, null, this, ()->currentPhotoViewer=null, ()->drawable, ()->avatarBorder.setTranslationZ(2), ()->avatarBorder.setTranslationZ(0)));
+					null, accountID, new SingleImagePhotoViewerListener(cover, cover, null, this, ()->currentPhotoViewer=null, ()->drawable, ()->avatarBorder.setTranslationZ(2), ()->avatarBorder.setTranslationZ(0)));
 		}
 	}
 

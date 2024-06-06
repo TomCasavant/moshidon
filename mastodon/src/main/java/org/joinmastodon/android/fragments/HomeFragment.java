@@ -5,8 +5,6 @@ import android.app.Fragment;
 import android.app.NotificationManager;
 import android.app.assist.AssistContent;
 import android.graphics.drawable.RippleDrawable;
-import android.content.Intent;
-import android.graphics.Outline;
 import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
@@ -37,7 +35,7 @@ import org.joinmastodon.android.fragments.onboarding.OnboardingFollowSuggestions
 import org.joinmastodon.android.model.Account;
 import org.joinmastodon.android.model.Notification;
 import org.joinmastodon.android.model.PaginatedResponse;
-import org.joinmastodon.android.ui.AccountSwitcherSheet;
+import org.joinmastodon.android.ui.sheets.AccountSwitcherSheet;
 import org.joinmastodon.android.ui.OutlineProviders;
 import org.joinmastodon.android.ui.utils.UiUtils;
 import org.joinmastodon.android.ui.views.TabBar;
@@ -311,11 +309,6 @@ public class HomeFragment extends AppKitFragment implements OnBackPressedListene
 			}
 			discoverFragment.openSearch();
 			return true;
-		}
-		if(tab==R.id.tab_home){
-			Bundle args=new Bundle();
-			args.putString("account", accountID);
-			Nav.go(getActivity(), OnboardingFollowSuggestionsFragment.class, args);
 		}
 		return false;
 	}

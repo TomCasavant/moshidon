@@ -31,6 +31,7 @@
 		android:name=".MastodonApp"
 		android:allowBackup="true"
 		android:label="@string/mo_app_name"
+		android:dataExtractionRules="@xml/backup_rules"
 		android:supportsRtl="true"
 		android:localeConfig="@xml/locales_config"
 		android:icon="@mipmap/ic_launcher"
@@ -112,6 +113,14 @@
 			<meta-data
 				android:name="android.support.FILE_PROVIDER_PATHS"
 				android:resource="@xml/file_paths" />
+		</provider>
+
+		<provider
+			android:authorities="${applicationId}.fileprovider"
+			android:name=".TweakedFileProvider"
+			android:grantUriPermissions="true"
+			android:exported="false">
+			<meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/fileprovider_paths"/>
 		</provider>
 
 	</application>

@@ -7,16 +7,14 @@ import android.view.MenuInflater;
 
 import org.joinmastodon.android.R;
 import org.joinmastodon.android.api.requests.timelines.GetPublicTimeline;
-import org.joinmastodon.android.model.Filter;
+import org.joinmastodon.android.api.session.AccountSessionManager;
 import org.joinmastodon.android.model.FilterContext;
 import org.joinmastodon.android.model.Status;
 import org.joinmastodon.android.model.TimelineDefinition;
 import org.joinmastodon.android.ui.utils.UiUtils;
 import org.joinmastodon.android.utils.ProvidesAssistContent;
-import org.joinmastodon.android.utils.StatusFilterPredicate;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import me.grishka.appkit.api.SimpleCallback;
 
@@ -46,14 +44,14 @@ public class CustomLocalTimelineFragment extends PinnableStatusListFragment impl
 
     @Override
     protected void doLoadData(int offset, int count){
-        currentRequest=new GetPublicTimeline(true, false, refreshing ? null : maxID, count, getLocalPrefs().timelineReplyVisibility)
+        currentRequest=new GetPublicTimeline(true, false, refreshing ? null : maxID, null, count, null, getLocalPrefs().timelineReplyVisibility)
                 .setCallback(new SimpleCallback<>(this){
                     @Override
                     public void onSuccess(List<Status> result){
                         if(!result.isEmpty())
                             maxID=result.get(result.size()-1).id;
                         if (getActivity() == null) return;
-                        result=result.stream().filter(new StatusFilterPredicate(accountID, FilterContext.PUBLIC)).collect(Collectors.toList());
+						AccountSessionManager.get(accountID).filterStatuses(result, FilterContext.PUBLIC);
                         result.stream().forEach(status -> {
                             status.account.acct += "@"+domain;
                             status.mentions.forEach(mention -> mention.id = null);
@@ -82,12 +80,15 @@ public class CustomLocalTimelineFragment extends PinnableStatusListFragment impl
 
     @Override
     protected FilterContext getFilterContext() {
-        return null;
+        return FilterContext.PUBLIC;
     }
 
     @Override
     public Uri getWebUri(Uri.Builder base) {
-        return Uri.parse(domain);
+		return new Uri.Builder()
+				.scheme("https")
+				.authority(domain)
+				.build();
     }
 
     @Override

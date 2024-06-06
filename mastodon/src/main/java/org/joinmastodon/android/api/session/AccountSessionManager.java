@@ -96,6 +96,7 @@ public class AccountSessionManager{
 
 	private AccountSessionManager(){
 		prefs=MastodonApp.context.getSharedPreferences("account_manager", Context.MODE_PRIVATE);
+		// This file should not be backed up, otherwise the app may start with accounts already logged in. See res/xml/backup_rules.xml
 		File file=new File(MastodonApp.context.getFilesDir(), "accounts.json");
 		if(!file.exists())
 			return;
@@ -216,12 +217,17 @@ public class AccountSessionManager{
 	public void removeAccount(String id){
 		AccountSession session=getAccount(id);
 		session.getCacheController().closeDatabase();
+		session.getCacheController().getListsFile().delete();
 		MastodonApp.context.deleteDatabase(id+".db");
 		MastodonApp.context.getSharedPreferences(id, 0).edit().clear().commit();
 		if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.N){
 			MastodonApp.context.deleteSharedPreferences(id);
 		}else{
-			new File(MastodonApp.context.getDir("shared_prefs", Context.MODE_PRIVATE), id+".xml").delete();
+			String dataDir=MastodonApp.context.getApplicationInfo().dataDir;
+			if(dataDir!=null){
+				File prefsDir=new File(dataDir, "shared_prefs");
+				new File(prefsDir, id+".xml").delete();
+			}
 		}
 		sessions.remove(id);
 		if(lastActiveAccountID.equals(id)){

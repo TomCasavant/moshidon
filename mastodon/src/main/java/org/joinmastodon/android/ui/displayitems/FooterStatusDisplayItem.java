@@ -200,40 +200,32 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 
 		private void onReplyClick(View v){
 			if(item.status.preview) return;
-			if(item.status.isRemote){
-				UiUtils.lookupStatus(v.getContext(),
-						item.status, item.accountID, null,
-						status -> {
-							UiUtils.opacityIn(v);
-							Bundle args=new Bundle();
-							args.putString("account", item.accountID);
-							args.putParcelable("replyTo", Parcels.wrap(status));
-							Nav.go(item.parentFragment.getActivity(), ComposeFragment.class, args);
-						}
-				);
-				return;
-			}
-			UiUtils.opacityIn(v);
-			Bundle args=new Bundle();
-			args.putString("account", item.accountID);
-			args.putParcelable("replyTo", Parcels.wrap(item.status));
-			Nav.go(item.parentFragment.getActivity(), ComposeFragment.class, args);
+			applyInteraction(v, status -> {
+				UiUtils.opacityIn(v);
+				openComposeView(status, item.accountID);
+			});
 		}
 
 		private boolean onReplyLongClick(View v) {
 			if(item.status.preview) return false;
 			if (AccountSessionManager.getInstance().getLoggedInAccounts().size() < 2) return false;
 			UiUtils.pickAccount(v.getContext(), item.accountID, R.string.sk_reply_as, R.drawable.ic_fluent_arrow_reply_28_regular, session -> {
-				Bundle args=new Bundle();
 				String accountID = session.getID();
-				args.putString("account", accountID);
 				UiUtils.lookupStatus(v.getContext(), item.status, accountID, item.accountID, status -> {
 					if (status == null) return;
-					args.putParcelable("replyTo", Parcels.wrap(status));
-					Nav.go(item.parentFragment.getActivity(), ComposeFragment.class, args);
+					openComposeView(status, accountID);
 				});
 			}, null);
 			return true;
+		}
+
+		private void openComposeView(Status status, String accountID) {
+			item.parentFragment.maybeShowPreReplySheet(status, () ->{
+				Bundle args=new Bundle();
+				args.putString("account", accountID);
+				args.putParcelable("replyTo", Parcels.wrap(status));
+				Nav.go(item.parentFragment.getActivity(), ComposeFragment.class, args);
+			});
 		}
 
 		private void onBoostClick(View v){
@@ -243,22 +235,13 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 				onBoostLongClick(v);
 				return;
 			}
-			if(item.status.isRemote){
-				UiUtils.lookupStatus(v.getContext(),
-						item.status, item.accountID, null,
-						status -> {
-							if(status == null)
-								return;
-							boost.setSelected(!status.reblogged);
-							vibrateForAction(boost, !status.reblogged);
-							AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setReblogged(status, !status.reblogged, null, r->boostConsumer(v, r));
-						}
-				);
-				return;
-			}
-			boost.setSelected(!item.status.reblogged);
-			vibrateForAction(boost, !item.status.reblogged);
-			AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setReblogged(item.status, !item.status.reblogged, null, r->boostConsumer(v, r));
+			applyInteraction(v, status -> {
+				if(status == null)
+					return;
+				boost.setSelected(!status.reblogged);
+				vibrateForAction(boost, !status.reblogged);
+				AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setReblogged(status, !status.reblogged, null, r->boostConsumer(v, r));
+			});
 		}
 
 		private void boostConsumer(View v, Status r) {
@@ -275,22 +258,12 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 
 			Consumer<StatusPrivacy> doReblog = (visibility) -> {
 				UiUtils.opacityOut(v);
-				if(item.status.isRemote){
-					UiUtils.lookupStatus(v.getContext(),
-							item.status, item.accountID, null,
-							status -> {
-								session.getStatusInteractionController()
-										.setReblogged(status, !status.reblogged, visibility, r->boostConsumer(v, r));
-								boost.setSelected(status.reblogged);
-								dialog.dismiss();
-							}
-					);
-				} else {
+				applyInteraction(v,status -> {
 					session.getStatusInteractionController()
-							.setReblogged(item.status, !item.status.reblogged, visibility, r->boostConsumer(v, r));
-					boost.setSelected(item.status.reblogged);
+							.setReblogged(status, !status.reblogged, visibility, r->boostConsumer(v, r));
+					boost.setSelected(status.reblogged);
 					dialog.dismiss();
-				}
+				});
 			};
 
 			View separator = menu.findViewById(R.id.separator);
@@ -364,33 +337,18 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 
 		private void onFavoriteClick(View v){
 			if(item.status.preview) return;
-			if(item.status.isRemote){
-				UiUtils.lookupStatus(v.getContext(),
-						item.status, item.accountID, null,
-						status -> {
-							if(status == null)
-								return;
-							favorite.setSelected(!status.favourited);
-							vibrateForAction(favorite, !status.favourited);
-							AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setFavorited(status, !status.favourited, r->{
-								if (status.favourited && !GlobalUserPreferences.reduceMotion && !GlobalUserPreferences.likeIcon) {
-									v.startAnimation(spin);
-								}
-								UiUtils.opacityIn(v);
-								bindText(favorites, r.favouritesCount);
-							});
-						}
-				);
-				return;
-			}
-			favorite.setSelected(!item.status.favourited);
-			vibrateForAction(favorite, !item.status.favourited);
-			AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setFavorited(item.status, !item.status.favourited, r->{
-				if (item.status.favourited && !GlobalUserPreferences.reduceMotion && !GlobalUserPreferences.likeIcon) {
-					v.startAnimation(spin);
-				}
-				UiUtils.opacityIn(v);
-				bindText(favorites, r.favouritesCount);
+			applyInteraction(v, status -> {
+				if(status == null)
+					return;
+				favorite.setSelected(!status.favourited);
+				vibrateForAction(favorite, !status.favourited);
+				AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setFavorited(status, !status.favourited, r->{
+					if (status.favourited && !GlobalUserPreferences.reduceMotion && !GlobalUserPreferences.likeIcon) {
+						v.startAnimation(spin);
+					}
+					UiUtils.opacityIn(v);
+					bindText(favorites, r.favouritesCount);
+				});
 			});
 		}
 
@@ -411,26 +369,16 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 
 		private void onBookmarkClick(View v){
 			if(item.status.preview) return;
-			if(item.status.isRemote){
-				UiUtils.lookupStatus(v.getContext(),
-						item.status, item.accountID, null,
-						status -> {
-							if(status == null)
-								return;
-							bookmark.setSelected(!status.bookmarked);
-							vibrateForAction(bookmark, !status.bookmarked);
-							AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setBookmarked(status, !status.bookmarked, r->{
-								UiUtils.opacityIn(v);
-							});
-						}
-				);
-				return;
-			}
-			bookmark.setSelected(!item.status.bookmarked);
-			vibrateForAction(bookmark, !item.status.bookmarked);
-			AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setBookmarked(item.status, !item.status.bookmarked, r->{
-				UiUtils.opacityIn(v);
-			});
+			applyInteraction(v,
+					status -> {
+						if(status == null)
+							return;
+						bookmark.setSelected(!status.bookmarked);
+						vibrateForAction(bookmark, !status.bookmarked);
+						AccountSessionManager.getInstance().getAccount(item.accountID).getStatusInteractionController().setBookmarked(status, !status.bookmarked, r->{
+							UiUtils.opacityIn(v);
+						});
+					});
 		}
 
 		private boolean onBookmarkLongClick(View v) {
@@ -451,10 +399,7 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 		private void onShareClick(View v){
 			if(item.status.preview) return;
 			UiUtils.opacityIn(v);
-			Intent intent=new Intent(Intent.ACTION_SEND);
-			intent.setType("text/plain");
-			intent.putExtra(Intent.EXTRA_TEXT, item.status.url);
-			v.getContext().startActivity(Intent.createChooser(intent, v.getContext().getString(R.string.share_toot_title)));
+			UiUtils.openSystemShareSheet(v.getContext(), item.status);
 		}
 
 		private boolean onShareLongClick(View v){
@@ -477,25 +422,37 @@ public class FooterStatusDisplayItem extends StatusDisplayItem{
 			return 0;
 		}
 
+		private void applyInteraction(View v, Consumer<Status> interactionConsumer) {
+			if(!item.status.isRemote){
+				interactionConsumer.accept(item.status);
+				return;
+			}
+			UiUtils.lookupStatus(v.getContext(),
+					item.status, item.accountID, null,
+					interactionConsumer
+			);
+		}
+
 		private static void vibrateForAction(View view, boolean isPositive) {
 			if (!GlobalUserPreferences.hapticFeedback) return;
 
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 				view.performHapticFeedback(isPositive ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.REJECT);
-			} else {
-				Vibrator vibrator = view.getContext().getSystemService(Vibrator.class);
+				return;
+			}
 
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-					vibrator.vibrate(VibrationEffect.createPredefined(isPositive ? VibrationEffect.EFFECT_CLICK : VibrationEffect.EFFECT_DOUBLE_CLICK));
-				} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-					VibrationEffect effect = isPositive
-							? VibrationEffect.createOneShot(75L, 128)
-							: VibrationEffect.createWaveform(new long[]{0L, 75L, 75L, 75L}, new int[]{0, 128, 0, 128}, -1);
-					vibrator.vibrate(effect);
-				} else {
-					if (isPositive) vibrator.vibrate(75L);
-					else vibrator.vibrate(new long[]{0L, 75L, 75L, 75L}, -1);
-				}
+			Vibrator vibrator = view.getContext().getSystemService(Vibrator.class);
+
+			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+				vibrator.vibrate(VibrationEffect.createPredefined(isPositive ? VibrationEffect.EFFECT_CLICK : VibrationEffect.EFFECT_DOUBLE_CLICK));
+			} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+				VibrationEffect effect = isPositive
+						? VibrationEffect.createOneShot(75L, 128)
+						: VibrationEffect.createWaveform(new long[]{0L, 75L, 75L, 75L}, new int[]{0, 128, 0, 128}, -1);
+				vibrator.vibrate(effect);
+			} else {
+				if (isPositive) vibrator.vibrate(75L);
+				else vibrator.vibrate(new long[]{0L, 75L, 75L, 75L}, -1);
 			}
 		}
 	}
