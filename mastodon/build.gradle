@@ -23,7 +23,7 @@ android {
     }
 
 	signingConfigs {
-		nightly{
+		/*nightly{
 			storeFile = file("keystore/nightly_keystore.jks")
 			storePassword System.getenv("SIGNING_STORE_PASSWORD")
 			if (storePassword == null) {
@@ -43,7 +43,7 @@ android {
 				properties.load(project.rootProject.file('local.properties').newDataInputStream())
 				keyPassword = properties.getProperty('SIGNING_KEY_PASSWORD')
 			}
-		}
+		}*/
 
 //		release{
 //			storeFile = file("keystore/release_keystore.jks")
@@ -93,7 +93,7 @@ android {
 			}
 			applicationIdSuffix '.nightly'
 
-			signingConfig signingConfigs.nightly
+			// signingConfig signingConfigs.nightly
 			manifestPlaceholders = [oAuthScheme:"moshidon-android-nightly-auth"]
 		}
 		playRelease{
