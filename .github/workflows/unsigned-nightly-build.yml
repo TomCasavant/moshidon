@@ -51,9 +51,7 @@ jobs:
     # Removed Decode Keystore step
 
     - name: Create local.properties
-      run: echo "sdk.dir=$ANDROID_SDK_ROOT" > ./mastodon/local.properties
-      env:
-        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      run: echo "sdk.dir=/usr/local/lib/android/sdk" > ./local.properties
 
     - name: Build with Gradle
       run: ./gradlew assembleNightly
