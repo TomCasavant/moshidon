@@ -39,5 +39,5 @@ jobs:
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.2
       with:
-        name: moshidon-nightly-unsigned.apk
-        path: ./mastodon/build/outputs/apk/nightly/moshidon-debug.apk
+        name: moshidon-debug.apk
+        path: ./mastodon/build/outputs/apk/debug/moshidon-debug.apk
