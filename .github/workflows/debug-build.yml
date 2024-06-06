@@ -31,13 +31,13 @@ jobs:
       run: echo "sdk.dir=/usr/local/lib/android/sdk" > ./local.properties
 
     - name: Build with Gradle
-      run: ./gradlew assembleNightly -Pandroid.injected.signing.store.file=none -Pandroid.injected.signing.key.alias=none
+      run: ./gradlew assembleDebug -Pandroid.injected.signing.store.file=none -Pandroid.injected.signing.key.alias=none
 
     - name: List APK files
-      run: ls ./mastodon/build/outputs/apk/nightly/
+      run: ls ./mastodon/build/outputs/apk/debug/
       
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.2
       with:
         name: moshidon-nightly-unsigned.apk
-        path: ./mastodon/build/outputs/apk/nightly/moshidon-nightly-unsigned.apk
+        path: ./mastodon/build/outputs/apk/nightly/moshidon-debug.apk
