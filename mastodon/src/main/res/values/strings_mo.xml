@@ -83,7 +83,7 @@
 	<string name="mo_repo_url" translatable="false">https://github.com/LucasGGamerM/moshidon</string>
 	<string name="mo_donate_url" translatable="false">https://github.com/sponsors/LucasGGamerM</string>
 
-<!--    Settings summaries-->
+	<!--    Settings summaries-->
     <string name="mo_setting_true_black_summary">Might save power on AMOLED displays</string>
     <string name="mo_setting_marquee_summary">Disables the ellipsized title scrolling</string>
     <string name="mo_setting_uniform_summary">Use the app icon for all notifications</string>
@@ -98,7 +98,7 @@
     <string name="mo_swap_bookmark_with_reblog_summary">Bookmark or reblog posts from the notification</string>
     <string name="mo_settings_show_posts_without_alt_summary">Posts will be hidden in all timelines, but can be revealed in threads and notifications</string>
 
-<!--  Settings  -->
+	<!--  Settings  -->
     <string name="mo_notification_audience_settings">Notification Audience</string>
     <string name="mo_settings_show_posts_without_alt">Show media posts with missing alt text</string>
 	<string name="mo_double_tap_to_search">Double tap to open search</string>
@@ -112,7 +112,7 @@
 	<string name="mo_confirm_unfollow">Confirm to unfollow %s</string>
 	<string name="mo_recent_emoji_cleared">Recent emoji cleared</string>
 	<string name="mo_show_media_preview">Show media preview in timelines</string>
-        <string name="mo_hide_tag_symbol">Hide tag symbol (\'#\') in posts</string>
+    <string name="mo_hide_tag_symbol">Hide tag symbol (\'#\') in posts</string>
 	<string name="mo_notification_filter_reset">Reset to default</string>
 	<string name="mo_settings_unifiedpush_warning">UnifiedPush not enabled</string>
 	<string name="mo_settings_unifiedpush_warning_no_distributors">No UnifiedPush Distributors installed. You will not receive any notifications.</string>
@@ -123,7 +123,7 @@
 	<string name="mo_muted_accounts">Muted accounts</string>
 	<!--	<string name="mo_mutes">Mutes</string>-->
 	<string name="mo_blocked_accounts">Blocked accounts</string>
-<!--	<string name="mo_blocks">Blocks</string>-->
+	<!--	<string name="mo_blocks">Blocks</string>-->
 	<string name="mo_mute_notifications">Hide notifications from this user?</string>
 	<string name="import_settings_confirm">Confirm to import settings?</string>
 	<string name="import_settings_confirm_body">All current settings and timelines will be overwritten! This action cannot be undone.</string>
