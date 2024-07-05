@@ -47,6 +47,7 @@ import org.joinmastodon.android.ui.displayitems.FooterStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.GapStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.HashtagStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.HeaderStatusDisplayItem;
+import org.joinmastodon.android.ui.displayitems.LinkCardStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.MediaGridStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.PollFooterStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.PollOptionStatusDisplayItem;
@@ -706,6 +707,41 @@ public abstract class BaseStatusListFragment<T extends DisplayItemsParent> exten
 		toggleSpoiler(status, isForQuote, holder.getItemID());
 	}
 
+	public void onAddQuoteToStatus(Status status, Status parentStatus) {
+		int cardIndex=-1;
+		int textIndex=-1;
+		int i=0;
+		for(StatusDisplayItem item:displayItems){
+			if(item.parentID.equals(parentStatus.id)){
+				if(item instanceof LinkCardStatusDisplayItem){
+					cardIndex=i;
+				}else if(item instanceof TextStatusDisplayItem){
+					textIndex=i;
+				}
+			}
+			i++;
+		}
+
+		int flags= (StatusDisplayItem.FLAG_NO_FOOTER | StatusDisplayItem.FLAG_INSET | StatusDisplayItem.FLAG_NO_EMOJI_REACTIONS | StatusDisplayItem.FLAG_IS_FOR_QUOTE);
+		if (!GlobalUserPreferences.showMediaPreview)
+			flags |= StatusDisplayItem.FLAG_NO_MEDIA_PREVIEW;
+
+		if (cardIndex!=-1) {
+			ArrayList<StatusDisplayItem> items=StatusDisplayItem.buildItems(this, status, accountID, parentStatus, knownAccounts, null, flags);
+			displayItems.remove(cardIndex);
+			adapter.notifyItemRemoved(cardIndex);
+			displayItems.addAll(cardIndex, items);
+			adapter.notifyItemRangeInserted(cardIndex, items.size());
+			return;
+		}
+
+		if (textIndex!=-1) {
+			ArrayList<StatusDisplayItem> items=StatusDisplayItem.buildItems(this, status, accountID, parentStatus, knownAccounts, null, flags);
+			displayItems.addAll(textIndex+1, items);
+			adapter.notifyItemRangeInserted(textIndex+1, items.size());
+		}
+	}
+
 	public void onVisibilityIconClick(HeaderStatusDisplayItem.Holder holder) {
 		Status status = holder.getItem().status;
 		if(holder.getItem().hasVisibilityToggle) holder.animateVisibilityToggle(false);
@@ -741,6 +777,8 @@ public abstract class BaseStatusListFragment<T extends DisplayItemsParent> exten
 			displayItems.addAll(index+1, spoilerItem.contentItems);
 			adapter.notifyItemRangeInserted(index+1, spoilerItem.contentItems.size());
 		}else{
+			if(spoilers.size()>1 && !isForQuote && status.quote.spoilerRevealed)
+				toggleSpoiler(status.quote, true, itemID);
 			displayItems.subList(index+1, index+1+spoilerItem.contentItems.size()).clear();
 			adapter.notifyItemRangeRemoved(index+1, spoilerItem.contentItems.size());
 		}
@@ -753,19 +791,23 @@ public abstract class BaseStatusListFragment<T extends DisplayItemsParent> exten
 		list.invalidateItemDecorations();
 	}
 
-	public void onEnableExpandable(TextStatusDisplayItem.Holder holder, boolean expandable) {
+	public void onEnableExpandable(TextStatusDisplayItem.Holder holder, boolean expandable, boolean isForQuote) {
 		Status s=holder.getItem().status;
 		if(s.textExpandable!=expandable && list!=null) {
 			s.textExpandable=expandable;
-			HeaderStatusDisplayItem.Holder header=findHolderOfType(holder.getItemID(), HeaderStatusDisplayItem.Holder.class);
+			List<HeaderStatusDisplayItem.Holder> headers=findAllHoldersOfType(holder.getItemID(), HeaderStatusDisplayItem.Holder.class);
+			HeaderStatusDisplayItem.Holder header=headers.size() > 1 && isForQuote ? headers.get(1) : headers.get(0);
 			if(header!=null) header.bindCollapseButton();
 		}
 	}
 
-	public void onToggleExpanded(Status status, String itemID) {
+	public void onToggleExpanded(Status status, boolean isForQuote, String itemID) {
 		status.textExpanded = !status.textExpanded;
-		notifyItemChanged(itemID, TextStatusDisplayItem.class);
-		HeaderStatusDisplayItem.Holder header=findHolderOfType(itemID, HeaderStatusDisplayItem.Holder.class);
+		List<TextStatusDisplayItem.Holder> textItems = findAllHoldersOfType(itemID, TextStatusDisplayItem.Holder.class);
+		TextStatusDisplayItem.Holder text = textItems.size() > 1 && isForQuote ? textItems.get(1) : textItems.get(0);
+		adapter.notifyItemChanged(text.getAbsoluteAdapterPosition());
+		List<HeaderStatusDisplayItem.Holder> headers=findAllHoldersOfType(itemID, HeaderStatusDisplayItem.Holder.class);
+		HeaderStatusDisplayItem.Holder header=headers.size() > 1 && isForQuote ? headers.get(1) : headers.get(0);
 		if(header!=null) header.animateExpandToggle();
 		else notifyItemChanged(itemID, HeaderStatusDisplayItem.class);
 	}
