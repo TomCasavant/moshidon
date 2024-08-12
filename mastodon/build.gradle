@@ -15,9 +15,9 @@ android {
 		archivesBaseName = "moshidon"
 		applicationId "org.joinmastodon.android.moshinda"
 		minSdk 23
-		targetSdk 33
-		versionCode 105
-		versionName "2.3.0+fork.105.moshinda"
+		targetSdk 34
+		versionCode 107
+		versionName "2.3.0+fork.107.moshinda"
 		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += ['ar-rSA', 'ar-rDZ', 'be-rBY', 'bn-rBD', 'bs-rBA', 'ca-rES', 'cs-rCZ', 'da-rDK', 'de-rDE', 'el-rGR', 'es-rES', 'eu-rES', 'fa-rIR', 'fi-rFI', 'fil-rPH', 'fr-rFR', 'ga-rIE', 'gd-rGB', 'gl-rES', 'hi-rIN', 'hr-rHR', 'hu-rHU', 'hy-rAM', 'ig-rNG', 'in-rID', 'is-rIS', 'it-rIT', 'iw-rIL', 'ja-rJP', 'kab', 'ko-rKR', 'my-rMM', 'nl-rNL', 'no-rNO', 'oc-rFR', 'pl-rPL', 'pt-rBR', 'pt-rPT', 'ro-rRO', 'ru-rRU', 'si-rLK', 'sl-rSI', 'sv-rSE', 'th-rTH', 'tr-rTR', 'uk-rUA', 'ur-rIN', 'vi-rVN', 'zh-rCN', 'zh-rTW']
     }
@@ -108,7 +108,8 @@ android {
 		}
 		fdroidRelease {
 			initWith release
-			versionNameSuffix '-fdroid'
+			// The F-droid build system doesn't like this at all for some reason.
+//			versionNameSuffix '-fdroid'
 //			signingConfig signingConfigs.release
 		}
 	}

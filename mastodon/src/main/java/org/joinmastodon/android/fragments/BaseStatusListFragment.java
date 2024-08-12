@@ -9,6 +9,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -23,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.joinmastodon.android.E;
 import org.joinmastodon.android.GlobalUserPreferences;
 import org.joinmastodon.android.R;
+import org.joinmastodon.android.api.CacheController;
 import org.joinmastodon.android.api.MastodonAPIRequest;
 import org.joinmastodon.android.api.requests.accounts.GetAccountRelationships;
 import org.joinmastodon.android.api.requests.polls.SubmitPollVote;
@@ -33,6 +35,7 @@ import org.joinmastodon.android.events.PollUpdatedEvent;
 import org.joinmastodon.android.model.Account;
 import org.joinmastodon.android.model.AkkomaTranslation;
 import org.joinmastodon.android.model.DisplayItemsParent;
+import org.joinmastodon.android.model.Notification;
 import org.joinmastodon.android.model.Poll;
 import org.joinmastodon.android.model.Relationship;
 import org.joinmastodon.android.model.Status;
@@ -47,7 +50,6 @@ import org.joinmastodon.android.ui.displayitems.FooterStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.GapStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.HashtagStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.HeaderStatusDisplayItem;
-import org.joinmastodon.android.ui.displayitems.LinkCardStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.MediaGridStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.PollFooterStatusDisplayItem;
 import org.joinmastodon.android.ui.displayitems.PollOptionStatusDisplayItem;
@@ -707,39 +709,40 @@ public abstract class BaseStatusListFragment<T extends DisplayItemsParent> exten
 		toggleSpoiler(status, isForQuote, holder.getItemID());
 	}
 
-	public void onAddQuoteToStatus(Status status, Status parentStatus) {
-		int cardIndex=-1;
-		int textIndex=-1;
-		int i=0;
-		for(StatusDisplayItem item:displayItems){
-			if(item.parentID.equals(parentStatus.id)){
-				if(item instanceof LinkCardStatusDisplayItem){
-					cardIndex=i;
-				}else if(item instanceof TextStatusDisplayItem){
-					textIndex=i;
-				}
-			}
-			i++;
-		}
-
-		int flags= (StatusDisplayItem.FLAG_NO_FOOTER | StatusDisplayItem.FLAG_INSET | StatusDisplayItem.FLAG_NO_EMOJI_REACTIONS | StatusDisplayItem.FLAG_IS_FOR_QUOTE);
-		if (!GlobalUserPreferences.showMediaPreview)
-			flags |= StatusDisplayItem.FLAG_NO_MEDIA_PREVIEW;
-
-		if (cardIndex!=-1) {
-			ArrayList<StatusDisplayItem> items=StatusDisplayItem.buildItems(this, status, accountID, parentStatus, knownAccounts, null, flags);
-			displayItems.remove(cardIndex);
-			adapter.notifyItemRemoved(cardIndex);
-			displayItems.addAll(cardIndex, items);
-			adapter.notifyItemRangeInserted(cardIndex, items.size());
+	public void updateStatusWithQuote(DisplayItemsParent parent) {
+		Pair<Integer, Integer> items=findAllItemsOfParent(parent);
+		if (items==null)
 			return;
+
+		// Only StatusListFragments/NotificationsListFragments can display status with quotes
+		assert (this instanceof StatusListFragment) || (this instanceof NotificationsListFragment);
+		List<StatusDisplayItem> oldItems = displayItems.subList(items.first, items.second+1);
+		List<StatusDisplayItem> newItems=this.buildDisplayItems((T) parent);
+		int prevSize=oldItems.size();
+		oldItems.clear();
+		displayItems.addAll(items.first, newItems);
+
+		// Update the cache
+		final CacheController cache=AccountSessionManager.get(accountID).getCacheController();
+		if (parent instanceof Status) {
+			cache.updateStatus((Status) parent);
+		} else if (parent instanceof Notification) {
+			cache.updateNotification((Notification) parent);
 		}
 
-		if (textIndex!=-1) {
-			ArrayList<StatusDisplayItem> items=StatusDisplayItem.buildItems(this, status, accountID, parentStatus, knownAccounts, null, flags);
-			displayItems.addAll(textIndex+1, items);
-			adapter.notifyItemRangeInserted(textIndex+1, items.size());
-		}
+		adapter.notifyItemRangeRemoved(items.first, prevSize);
+		adapter.notifyItemRangeInserted(items.first, newItems.size());
+	}
+
+	public void removeStatus(DisplayItemsParent parent) {
+		Pair<Integer, Integer> items=findAllItemsOfParent(parent);
+		if (items==null)
+			return;
+
+		List<StatusDisplayItem> statusDisplayItems = displayItems.subList(items.first, items.second+1);
+		int prevSize=statusDisplayItems.size();
+		statusDisplayItems.clear();
+		adapter.notifyItemRangeRemoved(items.first, prevSize);
 	}
 
 	public void onVisibilityIconClick(HeaderStatusDisplayItem.Holder holder) {
@@ -796,17 +799,27 @@ public abstract class BaseStatusListFragment<T extends DisplayItemsParent> exten
 		if(s.textExpandable!=expandable && list!=null) {
 			s.textExpandable=expandable;
 			List<HeaderStatusDisplayItem.Holder> headers=findAllHoldersOfType(holder.getItemID(), HeaderStatusDisplayItem.Holder.class);
-			HeaderStatusDisplayItem.Holder header=headers.size() > 1 && isForQuote ? headers.get(1) : headers.get(0);
-			if(header!=null) header.bindCollapseButton();
+			if(headers!=null && !headers.isEmpty()){
+				HeaderStatusDisplayItem.Holder header=headers.size() > 1 && isForQuote ? headers.get(1) : headers.get(0);
+				if(header!=null) header.bindCollapseButton();
+			}
 		}
 	}
 
 	public void onToggleExpanded(Status status, boolean isForQuote, String itemID) {
 		status.textExpanded = !status.textExpanded;
-		List<TextStatusDisplayItem.Holder> textItems = findAllHoldersOfType(itemID, TextStatusDisplayItem.Holder.class);
-		TextStatusDisplayItem.Holder text = textItems.size() > 1 && isForQuote ? textItems.get(1) : textItems.get(0);
-		adapter.notifyItemChanged(text.getAbsoluteAdapterPosition());
+		// TODO: simplify this to a single case
+		if(!isForQuote)
+			// using the adapter directly to update the item does not work for non-quoted texts
+			notifyItemChanged(itemID, TextStatusDisplayItem.class);
+		else{
+			List<TextStatusDisplayItem.Holder> textItems=findAllHoldersOfType(itemID, TextStatusDisplayItem.Holder.class);
+			TextStatusDisplayItem.Holder text=textItems.size()>1 ? textItems.get(1) : textItems.get(0);
+			adapter.notifyItemChanged(text.getAbsoluteAdapterPosition());
+		}
 		List<HeaderStatusDisplayItem.Holder> headers=findAllHoldersOfType(itemID, HeaderStatusDisplayItem.Holder.class);
+		if (headers.isEmpty())
+			return;
 		HeaderStatusDisplayItem.Holder header=headers.size() > 1 && isForQuote ? headers.get(1) : headers.get(0);
 		if(header!=null) header.animateExpandToggle();
 		else notifyItemChanged(itemID, HeaderStatusDisplayItem.class);
@@ -933,6 +946,23 @@ public abstract class BaseStatusListFragment<T extends DisplayItemsParent> exten
 				return type.cast(holder);
 		}
 		return null;
+	}
+
+	@Nullable
+	protected Pair<Integer, Integer> findAllItemsOfParent(DisplayItemsParent parent){
+		int startIndex=-1;
+		int endIndex=-1;
+		for(int i=0; i<displayItems.size(); i++){
+			StatusDisplayItem item = displayItems.get(i);
+			if(item.parentID.equals(parent.getID())) {
+				startIndex= startIndex==-1 ? i : startIndex;
+				endIndex=i;
+			}
+		}
+
+		if(startIndex==-1 || endIndex==-1)
+			return null;
+		return Pair.create(startIndex, endIndex);
 	}
 
 	protected <I extends StatusDisplayItem, H extends StatusDisplayItem.Holder<I>> List<H> findAllHoldersOfType(String id, Class<H> type){
