@@ -13,7 +13,6 @@ import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -38,8 +37,6 @@ import android.os.SystemClock;
 import android.os.ext.SdkExtensions;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
-import android.system.ErrnoException;
-import android.system.Os;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -51,12 +48,9 @@ import android.transition.Fade;
 import android.transition.TransitionManager;
 import android.transition.TransitionSet;
 import android.util.Log;
-import android.util.Log;
 import android.util.Pair;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
-import android.view.LayoutInflater;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -67,7 +61,6 @@ import android.view.ViewPropertyAnimator;
 import android.view.WindowInsets;
 import android.webkit.MimeTypeMap;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
@@ -78,10 +71,8 @@ import android.widget.Toast;
 import org.joinmastodon.android.E;
 import org.joinmastodon.android.FileProvider;
 import org.joinmastodon.android.GlobalUserPreferences;
-import org.joinmastodon.android.MainActivity;
 import org.joinmastodon.android.MastodonApp;
 import org.joinmastodon.android.R;
-import org.joinmastodon.android.api.CacheController;
 import org.joinmastodon.android.api.MastodonAPIRequest;
 import org.joinmastodon.android.api.MastodonErrorResponse;
 import org.joinmastodon.android.api.StatusInteractionController;
@@ -95,7 +86,6 @@ import org.joinmastodon.android.api.requests.accounts.RejectFollowRequest;
 import org.joinmastodon.android.api.requests.instance.GetInstance;
 import org.joinmastodon.android.api.requests.lists.DeleteList;
 import org.joinmastodon.android.api.requests.notifications.DismissNotification;
-import org.joinmastodon.android.api.requests.search.GetSearchResults;
 import org.joinmastodon.android.api.requests.statuses.CreateStatus;
 import org.joinmastodon.android.api.requests.statuses.DeleteStatus;
 import org.joinmastodon.android.api.requests.statuses.GetStatusByID;
@@ -126,7 +116,6 @@ import org.joinmastodon.android.model.Hashtag;
 import org.joinmastodon.android.model.Relationship;
 import org.joinmastodon.android.model.SearchResults;
 import org.joinmastodon.android.model.ScheduledStatus;
-import org.joinmastodon.android.model.SearchResults;
 import org.joinmastodon.android.model.Searchable;
 import org.joinmastodon.android.model.Status;
 import org.joinmastodon.android.ui.M3AlertDialogBuilder;
@@ -136,6 +125,7 @@ import org.joinmastodon.android.ui.sheets.BlockAccountConfirmationSheet;
 import org.joinmastodon.android.ui.sheets.MuteAccountConfirmationSheet;
 import org.joinmastodon.android.ui.text.CustomEmojiSpan;
 import org.joinmastodon.android.ui.text.HtmlParser;
+import org.joinmastodon.android.utils.Tracking;
 import org.parceler.Parcels;
 
 import java.io.File;
@@ -160,7 +150,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -208,6 +197,8 @@ public class UiUtils {
 	}
 
 	public static void launchWebBrowser(Context context, String url) {
+		if(GlobalUserPreferences.removeTrackingParams)
+			url=Tracking.removeTrackingParameters(url);
 		try {
 			if (GlobalUserPreferences.useCustomTabs) {
 				new CustomTabsIntent.Builder()
@@ -426,7 +417,6 @@ public class UiUtils {
 		CustomEmojiSpan[] spans = text.getSpans(0, text.length(), CustomEmojiSpan.class);
 		if (spans.length == 0)
 			return;
-		int emojiSize = V.dp(20);
 		Map<Emoji, List<CustomEmojiSpan>> spansByEmoji = Arrays.stream(spans).collect(Collectors.groupingBy(s -> s.emoji));
 		for (Map.Entry<Emoji, List<CustomEmojiSpan>> emoji : spansByEmoji.entrySet()) {
 			ViewImageLoader.load(new ViewImageLoader.Target() {
@@ -437,14 +427,14 @@ public class UiUtils {
 					for (CustomEmojiSpan span : emoji.getValue()) {
 						span.setDrawable(d);
 					}
-					view.invalidate();
+					view.setText(view.getText());
 				}
 
 				@Override
 				public View getView() {
 					return view;
 				}
-			}, null, new UrlImageLoaderRequest(emoji.getKey().url, emojiSize, emojiSize), null, false, true);
+			}, null, new UrlImageLoaderRequest(emoji.getKey().url, 0, V.dp(20)), null, false, true);
 		}
 	}
 
@@ -943,17 +933,20 @@ public class UiUtils {
 	}
 
 
-	public static void handleFollowRequest(Activity activity, Account account, String accountID, @Nullable String notificationID, boolean accepted, Relationship relationship, Consumer<Relationship> resultCallback) {
+	public static void handleFollowRequest(Activity activity, Account account, String accountID, @Nullable String notificationID, boolean accepted, Relationship relationship, Consumer<Boolean> progressCallback, Consumer<Relationship> resultCallback) {
+		progressCallback.accept(true);
 		if (accepted) {
 			new AuthorizeFollowRequest(account.id).setCallback(new Callback<>() {
 				@Override
 				public void onSuccess(Relationship rel) {
 					E.post(new FollowRequestHandledEvent(accountID, true, account, rel));
+					progressCallback.accept(false);
 					resultCallback.accept(rel);
 				}
 
 				@Override
 				public void onError(ErrorResponse error) {
+					progressCallback.accept(false);
 					resultCallback.accept(relationship);
 					error.showToast(activity);
 				}
@@ -965,11 +958,13 @@ public class UiUtils {
 					E.post(new FollowRequestHandledEvent(accountID, false, account, rel));
 					if (notificationID != null)
 						E.post(new NotificationDeletedEvent(notificationID));
+					progressCallback.accept(false);
 					resultCallback.accept(rel);
 				}
 
 				@Override
 				public void onError(ErrorResponse error) {
+					progressCallback.accept(false);
 					resultCallback.accept(relationship);
 					error.showToast(activity);
 				}
@@ -1353,10 +1348,6 @@ public class UiUtils {
 		openURL(context, accountID, url, true);
 	}
 
-	public static void openURL(Context context, String accountID, String url, Object parentObject) {
-		openURL(context, accountID, url, !(parentObject instanceof Status || parentObject instanceof Account));
-	}
-
 	public static void openURL(Context context, String accountID, String url, boolean launchBrowser) {
 		lookupURL(context, accountID, url, (clazz, args) -> {
 			if (clazz == null) {
@@ -1474,7 +1465,7 @@ public class UiUtils {
 									return;
 								}
 								Optional<Account> account = results.accounts.stream()
-										.filter(a -> uri.equals(Uri.parse(a.url))).findAny();
+										.filter(a -> uri.getPath().contains(a.username)).findAny();
 								if (account.isPresent()) {
 									args.putParcelable("profileAccount", Parcels.wrap(account.get()));
 									go.accept(ProfileFragment.class, args);
@@ -1496,6 +1487,8 @@ public class UiUtils {
 	}
 
 	public static void copyText(View v, String text) {
+		if(GlobalUserPreferences.removeTrackingParams)
+			text=Tracking.cleanUrlsInText(text);
 		Context context = v.getContext();
 		context.getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText(null, text));
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || UiUtils.isMIUI()) { // Android 13+ SystemUI shows its own thing when you put things into the clipboard
@@ -1546,7 +1539,7 @@ public class UiUtils {
 
 	public static boolean pickAccountForCompose(Activity activity, String accountID, Bundle args) {
 		if (AccountSessionManager.getInstance().getLoggedInAccounts().size() > 1) {
-			UiUtils.pickAccount(activity, accountID, 0, 0, session -> {
+			UiUtils.pickAccount(activity, accountID, 0, R.drawable.ic_fluent_compose_28_regular, session -> {
 				args.putString("account", session.getID());
 				Nav.go(activity, ComposeFragment.class, args);
 			}, null);
@@ -1646,17 +1639,6 @@ public class UiUtils {
 		if(maxCount>1)
 			intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
 		return intent;
-	}
-
-	public static void populateAccountsMenu(String excludeAccountID, Menu menu, Consumer<AccountSession> onClick) {
-		List<AccountSession> sessions=AccountSessionManager.getInstance().getLoggedInAccounts();
-		sessions.stream().filter(s -> !s.getID().equals(excludeAccountID)).forEach(s -> {
-			String username = "@"+s.self.username+"@"+s.domain;
-			menu.add(username).setOnMenuItemClickListener((c) -> {
-				onClick.accept(s);
-				return true;
-			});
-		});
 	}
 
 	public static void showFragmentForNotification(Context context, Notification n, String accountID, Bundle extras) {
@@ -1792,9 +1774,9 @@ public class UiUtils {
 		ImageCache cache=ImageCache.getInstance(context);
 		try{
 			File ava=cache.getFile(new UrlImageLoaderRequest(account.avatarStatic));
-			if(!ava.exists())
+			if(ava==null || !ava.exists())
 				ava=cache.getFile(new UrlImageLoaderRequest(account.avatar));
-			if(ava.exists()){
+			if(ava!=null && ava.exists()){
 				intent.setClipData(ClipData.newRawUri(null, getFileProviderUri(context, ava)));
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 			}

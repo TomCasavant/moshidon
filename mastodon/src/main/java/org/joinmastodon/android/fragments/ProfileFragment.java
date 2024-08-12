@@ -287,11 +287,10 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 		noteEdit.setOnFocusChangeListener((v, hasFocus)->{
 			if(hasFocus){
 				hideFab();
-				noteEdit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-			}else{
-				showFab();
-				savePrivateNote(noteEdit.getText().toString());
+				return;
 			}
+			showFab();
+			savePrivateNote(noteEdit.getText().toString());
 		});
 
 		FrameLayout sizeWrapper=new FrameLayout(getActivity()){
@@ -469,6 +468,7 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 			public void onSuccess(Relationship result) {
 				updateRelationship(result);
 				invalidateOptionsMenu();
+				Toast.makeText(getContext(), R.string.mo_personal_note_saved, Toast.LENGTH_SHORT).show();
 			}
 
 			@Override
@@ -817,18 +817,12 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 			UiUtils.enableOptionsMenuIcons(getActivity(), menu, R.id.edit_note);
 		}
 		boolean hasMultipleAccounts = AccountSessionManager.getInstance().getLoggedInAccounts().size() > 1;
-		MenuItem openWithAccounts = menu.findItem(R.id.open_with_account);
-		openWithAccounts.setVisible(hasMultipleAccounts);
-		SubMenu accountsMenu=openWithAccounts.getSubMenu();
-		if(hasMultipleAccounts){
-			accountsMenu.clear();
-			UiUtils.populateAccountsMenu(accountID, accountsMenu, s-> UiUtils.openURL(
-					getActivity(), s.getID(), account.url, false
-			));
-		}
+		menu.findItem(R.id.open_with_account).setVisible(hasMultipleAccounts);
 
 		if(isOwnProfile) {
 			if (isInstancePixelfed()) menu.findItem(R.id.scheduled).setVisible(false);
+			menu.findItem(R.id.favorites).setIcon(GlobalUserPreferences.likeIcon ? R.drawable.ic_fluent_heart_20_regular : R.drawable.ic_fluent_star_20_regular);
+			UiUtils.insetPopupMenuIcon(getContext(), menu.findItem(R.id.favorites));
 			return;
 		}
 
@@ -962,11 +956,10 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 						.show();
 			}
 			invalidateOptionsMenu();
-		}else if(id==R.id.manage_user_lists){
-			Bundle args=new Bundle();
-			args.putString("account", accountID);
-			args.putParcelable("targetAccount", Parcels.wrap(account));
-			Nav.go(getActivity(), AddAccountToListsFragment.class, args);
+		}else if(id==R.id.open_with_account){
+			UiUtils.pickAccount(getActivity(), accountID, R.string.sk_open_with_account, R.drawable.ic_fluent_person_swap_24_regular, session ->UiUtils.openURL(
+					getActivity(), session.getID(), account.url, false
+			), null);
 		}
 		return true;
 	}
@@ -1594,8 +1587,9 @@ public class ProfileFragment extends LoaderFragment implements OnBackPressedList
 		public void setImage(int index, Drawable image){
 			CustomEmojiSpan span=index>=item.nameEmojis.length ? item.valueEmojis[index-item.nameEmojis.length] : item.nameEmojis[index];
 			span.setDrawable(image);
-			title.invalidate();
-			value.invalidate();
+			title.setText(title.getText());
+			value.setText(value.getText());
+			toolbarTitleView.setText(toolbarTitleView.getText());
 		}
 
 		@Override

@@ -81,6 +81,7 @@ public class GlobalUserPreferences{
 	public static boolean showPostsWithoutAlt;
 	public static boolean showMediaPreview;
 	public static boolean hideTagSymbol;
+	public static boolean removeTrackingParams;
 
 	public static SharedPreferences getPrefs(){
 		return MastodonApp.context.getSharedPreferences("global", Context.MODE_PRIVATE);
@@ -162,6 +163,7 @@ public class GlobalUserPreferences{
 		showPostsWithoutAlt=prefs.getBoolean("showPostsWithoutAlt", true);
 		showMediaPreview=prefs.getBoolean("showMediaPreview", true);
 		hideTagSymbol = prefs.getBoolean("hideTagSymbol", false);
+		removeTrackingParams=prefs.getBoolean("removeTrackingParams", true);
 
 		theme=ThemePreference.values()[prefs.getInt("theme", 0)];
 
@@ -237,6 +239,7 @@ public class GlobalUserPreferences{
 				.putBoolean("showPostsWithoutAlt", showPostsWithoutAlt)
 				.putBoolean("showMediaPreview", showMediaPreview)
 				.putBoolean("hideTagSymbol", hideTagSymbol)
+				.putBoolean("removeTrackingParams", removeTrackingParams)
 
 				.apply();
 	}

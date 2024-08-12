@@ -17,8 +17,10 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 
 import org.joinmastodon.android.R;
+import org.joinmastodon.android.api.requests.accounts.GetAccountRelationships;
 import org.joinmastodon.android.api.requests.search.GetSearchResults;
 import org.joinmastodon.android.api.session.AccountLocalPreferences;
+import org.joinmastodon.android.api.session.AccountSession;
 import org.joinmastodon.android.api.session.AccountSessionManager;
 import org.joinmastodon.android.fragments.BaseStatusListFragment;
 import org.joinmastodon.android.fragments.HashtagTimelineFragment;
@@ -35,6 +37,7 @@ import org.joinmastodon.android.model.FilterResult;
 import org.joinmastodon.android.model.LegacyFilter;
 import org.joinmastodon.android.model.Notification;
 import org.joinmastodon.android.model.Poll;
+import org.joinmastodon.android.model.Relationship;
 import org.joinmastodon.android.model.ScheduledStatus;
 import org.joinmastodon.android.model.SearchResults;
 import org.joinmastodon.android.model.Status;
@@ -48,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -83,6 +87,10 @@ public abstract class StatusDisplayItem{
 	public static final int FLAG_NO_EMOJI_REACTIONS=1 << 6;
 	public static final int FLAG_IS_FOR_QUOTE=1 << 7;
 	public static final int FLAG_NO_MEDIA_PREVIEW=1 << 8;
+
+
+	private final static  Pattern QUOTE_MENTION_PATTERN=Pattern.compile("(?:<p>)?\\s?(?:RE:\\s?(<br\\s?\\/?>)?)?<a href=\"https:\\/\\/[^\"]+\"[^>]*><span class=\"invisible\">https:\\/\\/<\\/span><span class=\"ellipsis\">[^<]+<\\/span><span class=\"invisible\">[^<]+<\\/span><\\/a>(?:<\\/p>)?$");
+	private final static  Pattern QUOTE_PATTERN=Pattern.compile("https://[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,8}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)$");
 
 	public void setAncestryInfo(
 			boolean hasDescendantNeighbor,
@@ -270,6 +278,14 @@ public abstract class StatusDisplayItem{
 				int quoteInlineIndex=statusForContent.content.lastIndexOf("<span class=\"quote-inline\"><br/><br/>RE:");
 				if(quoteInlineIndex!=-1)
 					statusForContent.content=statusForContent.content.substring(0, quoteInlineIndex);
+				else {
+					// hide non-official quote patters
+					Matcher matcher=QUOTE_MENTION_PATTERN.matcher(status.content);
+					if(matcher.find()){
+						String quoteMention=matcher.group();
+						statusForContent.content=statusForContent.content.replace(quoteMention, "");
+					}
+				}
 			}
 
 			boolean hasSpoiler=!TextUtils.isEmpty(statusForContent.spoilerText);
@@ -325,6 +341,8 @@ public abstract class StatusDisplayItem{
 				if(!statusForContent.mediaAttachments.isEmpty() && statusForContent.poll==null) // add spacing if immediately preceded by attachment
 					contentItems.add(new DummyStatusDisplayItem(parentID, fragment));
 				contentItems.addAll(buildItems(fragment, statusForContent.quote, accountID, parentObject, knownAccounts, filterContext, FLAG_NO_FOOTER|FLAG_INSET|FLAG_NO_EMOJI_REACTIONS|FLAG_IS_FOR_QUOTE));
+			} else if((flags & FLAG_INSET)==0 && statusForContent.mediaAttachments.isEmpty() && statusForContent.account!=null){
+				tryAddNonOfficialQuote(statusForContent, fragment, accountID, filterContext);
 			}
 			if(contentItems!=items && statusForContent.spoilerRevealed){
 				items.addAll(contentItems);
@@ -378,36 +396,11 @@ public abstract class StatusDisplayItem{
 				}
 			}
 
-			// I actually forgot where I took this, but it works
-			Pattern pattern = Pattern.compile("[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)");
-			Matcher matcher = pattern.matcher(statusForContent.content);
-
-			String lastUrl = null;
-			if (matcher.find()) {
-				lastUrl = matcher.group(0);
-				// The regex doesn't capture the scheme, so I add one here manually, so that the looksLikeFediverseUrlMethod actually works
-				lastUrl = "https://" + lastUrl;
-			}
-
-			if (UiUtils.looksLikeFediverseUrl(lastUrl) && statusForContent.quote == null) {
-				new GetSearchResults(lastUrl, GetSearchResults.Type.STATUSES, true, null, 0, 0).setCallback(new Callback<>(){
-					@Override
-					public void onSuccess(SearchResults results){
-						if (!results.statuses.isEmpty()){
-							fragment.onAddQuoteToStatus(results.statuses.get(0), statusForContent);
-						}
-					}
-
-					@Override
-					public void onError(ErrorResponse error){
-						// Nothing
-					}
-				}).exec(accountID);
-			}
-
 			List<StatusDisplayItem> nonGapItems=gap!=null ? items.subList(0, items.size()-1) : items;
 			WarningFilteredStatusDisplayItem warning=applyingFilter==null ? null :
 					new WarningFilteredStatusDisplayItem(parentID, fragment, statusForContent, nonGapItems, applyingFilter);
+			if(warning!=null)
+				warning.inset=inset;
 			return applyingFilter==null ? items : new ArrayList<>(gap!=null
 					? List.of(warning, gap)
 					: Collections.singletonList(warning)
@@ -425,6 +418,61 @@ public abstract class StatusDisplayItem{
 			i++;
 		}
 		items.add(new PollFooterStatusDisplayItem(parentID, fragment, poll, status));
+	}
+
+	/**
+	 * Tries to adds a non-official quote to a status.
+	 * A non-official quote is a quote on an instance that does not support quotes officially.
+	 */
+	private static void tryAddNonOfficialQuote(Status status, BaseStatusListFragment fragment, String accountID, FilterContext filterContext) {
+		Matcher matcher=QUOTE_PATTERN.matcher(status.getStrippedText());
+
+		if(!matcher.find())
+			return;
+		String quoteURL=matcher.group();
+
+		// account may be null for scheduled posts
+		if (!UiUtils.looksLikeFediverseUrl(quoteURL))
+			return;
+
+		new GetSearchResults(quoteURL, GetSearchResults.Type.STATUSES, true, null, 0, 0).setCallback(new Callback<>(){
+			@Override
+			public void onSuccess(SearchResults results){
+				AccountSessionManager.get(accountID).filterStatuses(results.statuses, filterContext);
+				if (results.statuses == null || results.statuses.isEmpty())
+					return;
+
+				Status quote=results.statuses.get(0);
+				new GetAccountRelationships(Collections.singletonList(quote.account.id))
+						.setCallback(new Callback<>(){
+							@Override
+							public void onSuccess(List<Relationship> relationships){
+								if(relationships.isEmpty())
+									return;
+
+								Relationship relationship=relationships.get(0);
+								String selfId=AccountSessionManager.get(accountID).self.id;
+								if(!status.account.id.equals(selfId) && (relationship.domainBlocking || relationship.muting || relationship.blocking)) {
+									// do not show posts that are quoting a muted/blocked user
+									fragment.removeStatus(status);
+									return;
+								}
+
+								status.quote=results.statuses.get(0);
+								fragment.updateStatusWithQuote(status);
+							}
+
+							@Override
+							public void onError(ErrorResponse error){}
+						})
+						.exec(accountID);
+			}
+
+			@Override
+			public void onError(ErrorResponse error){
+				Log.w("StatusDisplayItem", "onError: failed to find quote status with URL: " + quoteURL + " " + error);
+			}
+		}).exec(accountID);
 	}
 
 	public enum Type{
