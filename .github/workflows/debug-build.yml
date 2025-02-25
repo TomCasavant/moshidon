@@ -37,7 +37,8 @@ jobs:
       run: ls ./mastodon/build/outputs/apk/debug/
       
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4
       with:
         name: moshidon-debug.apk
         path: ./mastodon/build/outputs/apk/debug/moshidon-debug.apk
+
