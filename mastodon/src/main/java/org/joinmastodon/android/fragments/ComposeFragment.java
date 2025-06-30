@@ -89,6 +89,7 @@ import org.joinmastodon.android.model.Mention;
 import org.joinmastodon.android.model.Preferences;
 import org.joinmastodon.android.model.ScheduledStatus;
 import org.joinmastodon.android.model.Status;
+import org.joinmastodon.android.model.Hashtag;
 import org.joinmastodon.android.model.StatusPrivacy;
 import org.joinmastodon.android.ui.CustomEmojiPopupKeyboard;
 import org.joinmastodon.android.ui.M3AlertDialogBuilder;
@@ -819,6 +820,13 @@ public class ComposeFragment extends MastodonToolbarFragment implements OnBackPr
 		if(savedInstanceState==null){
 			if(editingStatus!=null){
 				initialText=getArguments().getString("sourceText", "");
+				initialText += "\n\n";
+				for (Hashtag tag : editingStatus.tags) {
+					if (!initialText.contains(tag.toString())) {
+						initialText += "#" + tag.name + " ";
+					}
+				}
+				initialText = initialText.trim();
 				mainEditText.setText(initialText);
 				ignoreSelectionChanges=true;
 				mainEditText.setSelection(mainEditText.length());

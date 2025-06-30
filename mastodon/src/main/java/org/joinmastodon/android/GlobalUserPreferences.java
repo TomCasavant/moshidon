@@ -82,6 +82,7 @@ public class GlobalUserPreferences{
 	public static boolean showMediaPreview;
 	public static boolean removeTrackingParams;
 	public static boolean enhanceTextSize;
+	public static boolean hideTagSymbol;
 
 	public static SharedPreferences getPrefs(){
 		return MastodonApp.context.getSharedPreferences("global", Context.MODE_PRIVATE);
@@ -117,6 +118,7 @@ public class GlobalUserPreferences{
 		confirmUnfollow=prefs.getBoolean("confirmUnfollow", true);
 		confirmBoost=prefs.getBoolean("confirmBoost", false);
 		confirmDeletePost=prefs.getBoolean("confirmDeletePost", true);
+		hideTagSymbol = prefs.getBoolean("hideTagSymbol", false);
 
 		// MEGALODON
 		trueBlackTheme=prefs.getBoolean("trueBlackTheme", false);
@@ -192,6 +194,7 @@ public class GlobalUserPreferences{
 				.putBoolean("confirmUnfollow", confirmUnfollow)
 				.putBoolean("confirmBoost", confirmBoost)
 				.putBoolean("confirmDeletePost", confirmDeletePost)
+				.putBoolean("hideTagSymbol", hideTagSymbol)
 
 				// MEGALODON
 				.putBoolean("loadNewPosts", loadNewPosts)

@@ -47,7 +47,7 @@ public class SettingsDisplayFragment extends BaseSettingsFragment<Void>{
 	private CheckableListItem<Void> pronounsInUserListingsItem, pronounsInTimelinesItem, pronounsInThreadsItem;
 
 	// MOSHIDON
-	private  CheckableListItem<Void> enableDoubleTapToSwipeItem, relocatePublishButtonItem, showPostDividersItem, enableDoubleTapToSearchItem, showMediaPreviewItem, enhanceTextSizeItem;
+	private  CheckableListItem<Void> enableDoubleTapToSwipeItem, relocatePublishButtonItem, showPostDividersItem, enableDoubleTapToSearchItem, showMediaPreviewItem, enhanceTextSizeItem, hideTagSymbolItem;
 
 	private AccountLocalPreferences lp;
 
@@ -68,6 +68,7 @@ public class SettingsDisplayFragment extends BaseSettingsFragment<Void>{
 				revealCWsItem=new CheckableListItem<>(R.string.sk_settings_always_reveal_content_warnings, 0, CheckableListItem.Style.SWITCH, lp.revealCWs, R.drawable.ic_fluent_chat_warning_24_regular, i->toggleCheckableItem(revealCWsItem)),
 				hideSensitiveMediaItem=new CheckableListItem<>(R.string.settings_hide_sensitive_media, 0, CheckableListItem.Style.SWITCH, lp.hideSensitiveMedia, R.drawable.ic_fluent_flag_24_regular, i->toggleCheckableItem(hideSensitiveMediaItem)),
 				showMediaPreviewItem=new CheckableListItem<>(R.string.mo_show_media_preview, 0, CheckableListItem.Style.SWITCH, GlobalUserPreferences.showMediaPreview, R.drawable.ic_fluent_image_24_regular, i->toggleCheckableItem(showMediaPreviewItem)),
+				hideTagSymbolItem=new CheckableListItem<>(R.string.mo_hide_tag_symbol, 0, CheckableListItem.Style.SWITCH, GlobalUserPreferences.hideTagSymbol, R.drawable.ic_fluent_image_24_regular, i->toggleCheckableItem(hideTagSymbolItem)),
 				interactionCountsItem=new CheckableListItem<>(R.string.settings_show_interaction_counts, R.string.mo_setting_interaction_count_summary, CheckableListItem.Style.SWITCH, lp.showInteractionCounts, R.drawable.ic_fluent_number_row_24_regular, i->toggleCheckableItem(interactionCountsItem)),
 				emojiInNamesItem=new CheckableListItem<>(R.string.settings_show_emoji_in_names, 0, CheckableListItem.Style.SWITCH, lp.customEmojiInNames, R.drawable.ic_fluent_emoji_24_regular, i->toggleCheckableItem(emojiInNamesItem)),
 				marqueeItem=new CheckableListItem<>(R.string.sk_settings_enable_marquee, R.string.mo_setting_marquee_summary, CheckableListItem.Style.SWITCH, GlobalUserPreferences.toolbarMarquee, R.drawable.ic_fluent_text_more_24_regular, i->toggleCheckableItem(marqueeItem)),
@@ -142,6 +143,7 @@ public class SettingsDisplayFragment extends BaseSettingsFragment<Void>{
 		GlobalUserPreferences.displayPronounsInThreads=pronounsInThreadsItem.checked;
 		GlobalUserPreferences.displayPronounsInUserListings=pronounsInUserListingsItem.checked;
 		GlobalUserPreferences.showMediaPreview=showMediaPreviewItem.checked;
+		GlobalUserPreferences.hideTagSymbol=hideTagSymbolItem.checked;
 		GlobalUserPreferences.enhanceTextSize=enhanceTextSizeItem.checked;
 		GlobalUserPreferences.save();
 		if(restartPlease) restartActivityToApplyNewTheme();

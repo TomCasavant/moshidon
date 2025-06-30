@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="mo_app_name" translatable="false">Moshidon</string>
-    <string name="mo_app_name_debug" translatable="false">Moshidon Debug</string>
-    <string name="mo_app_name_nightly" translatable="false">Moshidon Nightly</string>
+    <string name="mo_app_name" translatable="false">Tomshidon</string>
+    <string name="mo_app_name_debug" translatable="false">Tomshidon Debug</string>
+    <string name="mo_app_name_nightly" translatable="false">Tomshidon Nightly</string>
 
     <string name="mo_color_palette_nord">Nord</string>
     <string name="mo_color_palette_black_and_white">Black and White</string>
@@ -117,6 +117,7 @@
 	<string name="mo_confirm_unfollow">Confirm to unfollow %s</string>
 	<string name="mo_recent_emoji_cleared">Recent emoji cleared</string>
 	<string name="mo_show_media_preview">Show media preview in timelines</string>
+	<string name="mo_hide_tag_symbol">Hide tag symbol (\'#\') in posts</string>
 	<string name="mo_notification_filter_reset">Reset to default</string>
 	<string name="mo_settings_unifiedpush_warning">UnifiedPush not enabled</string>
 	<string name="mo_settings_unifiedpush_warning_no_distributors">No UnifiedPush Distributors installed. You will not receive any notifications.</string>

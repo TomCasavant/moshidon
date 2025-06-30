@@ -24,6 +24,7 @@ import com.twitter.twittertext.Regex;
 import org.joinmastodon.android.R;
 import org.joinmastodon.android.model.Emoji;
 import org.joinmastodon.android.model.FilterResult;
+import org.joinmastodon.android.GlobalUserPreferences;
 import org.joinmastodon.android.model.Hashtag;
 import org.joinmastodon.android.model.Mention;
 import org.joinmastodon.android.ui.utils.UiUtils;
@@ -143,9 +144,12 @@ public class HtmlParser{
 							if(!TextUtils.isEmpty(text) && (el.hasClass("hashtag") || text.startsWith("#"))){
 								// MOSHIDON: we have slightly refactored this so that the hashtags properly work in akkoma
 								// TODO: upstream this
-								linkType=LinkSpan.Type.HASHTAG;
-								href=text.substring(1);
-								linkObject=tagsByTag.get(text.substring(1).toLowerCase());
+								linkType = LinkSpan.Type.HASHTAG;
+							    href = text.substring(1);
+							    linkObject = tagsByTag.get(text.substring(1).toLowerCase());
+							    if (GlobalUserPreferences.hideTagSymbol) {
+							    	el.text(href); // Ensuring hashtags no longer display '#'
+							    }
 							}else if(el.hasClass("mention")){
 								String id=idsByUrl.get(href);
 								if(id!=null){
